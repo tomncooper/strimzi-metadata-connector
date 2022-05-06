@@ -34,6 +34,7 @@ import java.util.Properties;
 
 public class RaftClientTest {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RaftClientTest.class);
 
     public static File createDataDir(TopicPartition topicPartition, String logDir) {
 
@@ -177,24 +178,15 @@ public class RaftClientTest {
         );
     }
 
-    public static void main(String[] args) throws IOException {
-
-        // Args:
-        // 1 - The filepath to the server.properties file
-        // 2 - The KRaft cluster id
-
-        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
-        Logger LOG = LoggerFactory.getLogger(RaftClientTest.class);
+    public static void runKRaftClient(String serverPropsFilePath, String clusterID) throws IOException {
 
         LOG.info("Creating Kafka Scheduler");
         KafkaScheduler scheduler = new KafkaScheduler(1, "kafka-raft" + "-scheduler", true);
         scheduler.startup();
 
-        String serverPropsFilePath = args[0];
         LOG.info("Reading config from: " + serverPropsFilePath);
         Properties props = Utils.loadProps(serverPropsFilePath);
         KafkaConfig config = KafkaConfig.fromProps(props,false);
-        String clusterID = args[1];
 
         LOG.info("Creating Kafka Raft Client");
         KafkaRaftClient<ApiMessageAndVersion> raftClient = createKafkaRaftClient(Time.SYSTEM, scheduler, config, clusterID);
@@ -206,7 +198,22 @@ public class RaftClientTest {
         RaftClient.Listener<ApiMessageAndVersion> simpleListener = new SimpleMetaLogListener();
         raftClient.register(simpleListener);
 
-        LOG.info("Leader and Epoch: " + raftClient.leaderAndEpoch());
+        LOG.info("Observer Node ID: " + raftClient.nodeId());
+
+        while(true) {
+            raftClient.poll();
+        }
+    }
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+
+        // Args:
+        // 1 - The filepath to the server.properties file
+        // 2 - The KRaft cluster id
+
+        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
+
+        runKRaftClient(args[0], args[1]);
 
     }
 
